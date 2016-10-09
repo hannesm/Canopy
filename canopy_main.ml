@@ -1,7 +1,7 @@
 open Lwt
 open V1_LWT
 
-module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (DISK: KV_RO) (CLOCK: V1.CLOCK) (KEYS: KV_RO) = struct
+module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: V1.CLOCK) (KEYS: KV_RO) = struct
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
@@ -10,8 +10,8 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
   module HTTP  = Cohttp_mirage.Server(TCP)
   module HTTPS = Cohttp_mirage.Server(TLS)
 
-  module D  = Canopy_dispatch.Make(HTTP)(C)(DISK)
-  module DS = Canopy_dispatch.Make(HTTPS)(C)(DISK)
+  module D  = Canopy_dispatch.Make(HTTP)(C)
+  module DS = Canopy_dispatch.Make(HTTPS)(C)
 
   let log c fmt = Printf.ksprintf (C.log c) fmt
 
@@ -28,7 +28,7 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
     X509.certificate kv `Default >|= fun cert ->
     Tls.Config.server ~certificates:(`Single cert) ()
 
-  let start console stack resolver conduit disk _clock keys _ _ =
+  let start console stack resolver conduit _clock keys _ =
     let started = match Ptime.of_float_s (CLOCK.time ()) with
       | None -> invalid_arg ("Ptime.of_float_s")
       | Some t -> t
@@ -61,7 +61,7 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
     store_ops.Canopy_dispatch.update () >>= fun l ->
     Lwt_list.iter_p (C.log_s console) l >>= fun () ->
     let disp hdr =
-      `Dispatch (config, hdr, disk, store_ops, atom, cache, started)
+      `Dispatch (config, hdr, store_ops, atom, cache, started)
     in
     (match config.tls_port with
      | Some tls_port ->
