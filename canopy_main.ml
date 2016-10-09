@@ -36,7 +36,7 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
     X509.certificate kv `Default >|= fun cert ->
     Tls.Config.server ~certificates:(`Single cert) ()
 
-  let start stack resolver conduit _clock keys _ =
+  let start stack resolver conduit _clock keys _ _ =
     let (module Context) = Irmin_mirage.context (resolver, conduit) in
     let module Store = Canopy_store.Store(Context)(Inflator) in
     Store.pull () >>= fun () ->
