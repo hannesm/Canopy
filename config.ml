@@ -43,10 +43,21 @@ let packages = [
 
 
 (* Network stack *)
+let address =
+  let network = Ipaddr.V4.Prefix.of_address_string_exn "198.167.222.203/24"
+  and gateway = Ipaddr.V4.of_string "198.167.222.1"
+  in
+  { network ; gateway }
+
 let stack =
   if_impl Key.is_unix
     (socket_stackv4 [Ipaddr.V4.any])
-    (generic_stackv4 default_network)
+    (static_ipv4_stack ~config:address ~arp:farp default_network)
+
+let logger =
+  syslog_udp
+    (syslog_config ~truncate:1484 "fullstackdev" (Ipaddr.V4.of_string_exn "198.167.222.206"))
+    stack
 
 let () =
   let keys = Key.([
@@ -58,7 +69,7 @@ let () =
   in
   register "canopy" [
     foreign
-      ~deps:[abstract nocrypto]
+      ~deps:[ abstract nocrypto ; abstract logger ]
       ~keys
       ~packages
       "Canopy_main.Main"
