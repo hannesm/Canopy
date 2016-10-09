@@ -38,7 +38,7 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
 
   module Store = Canopy_store
 
-  let start stack resolver conduit _clock keys _ =
+  let start stack resolver conduit _clock keys _ _ =
     Store.pull ~conduit ~resolver >>= fun () ->
     Store.base_uuid () >>= fun uuid ->
     Store.fill_cache uuid >>= fun new_cache ->

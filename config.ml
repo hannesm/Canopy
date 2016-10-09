@@ -47,7 +47,10 @@ let packages = [
 let stack =
   if_impl Key.is_unix
     (socket_stackv4 [Ipaddr.V4.any])
-    (generic_stackv4 default_network)
+    (static_ipv4_stack ~arp:farp default_network)
+
+let logger =
+  syslog_udp ~config:(syslog_config ~truncate:1484 "hannes.nqsb.io") stack
 
 let () =
   let keys = Key.([
@@ -59,7 +62,7 @@ let () =
   in
   register "canopy" [
     foreign
-      ~deps:[abstract nocrypto]
+      ~deps:[ abstract nocrypto ; abstract logger ]
       ~keys
       ~packages
       "Canopy_main.Main"
