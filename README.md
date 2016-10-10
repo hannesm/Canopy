@@ -32,7 +32,6 @@ header (containing `max-age=31536000`).
 ### Compiling and running Canopy
 
 You will need at least `OCaml 4.02.3`, `opam 1.2` and `mirage 2.7.0` before starting. To setup a mirage environment, please refer to the mirage website.
-You'll also need `npm`, `less-css` and `browserify` if you want to compile and retrieve everything related to the blog-styling. The `mirage configure` step takes care of fetching and recompiling all assets. If none of the mentioned programs were to be found, the configure step will use the tarball found in the `assets` directory, containing already compiled assets.
 
 Checkout Canopy repository, then go inside:
 
@@ -49,6 +48,18 @@ uuidtrip -r > myuuid.txt
 
 A server will be launched using the specified URL as the git remote, `Index` as the default page rendered on the blog (it must exist within the repository) and `8080` is the listening port.
 You can see more options by running `./mir-canopy --help`.
+
+To prepare your own data repository, you have to use `npm`, `less-css` and `browserify` if you want to compile and retrieve everything related to the blog-styling. The `mirage configure` step takes care of fetching and recompiling all assets. If none of the mentioned programs were to be found, the configure step will use the tarball found in the `assets` directory, containing already compiled assets.
+
+```
+mkdir /tmp/data
+cd /tmp/data && git init .
+# Either populate data using npm, browserify, etc.
+./populate.sh /tmp/data
+# OR use pregenerated tarball
+cd /tmp/data && tar xf assets/assets_generated.tar.gz
+cd /tmp/data && mv disk/static .
+```
 
 ### Compiling and running on Xen
 
