@@ -62,6 +62,11 @@ module KeyMap = struct
     match find_opt m k with
     | Some (`Article a) -> Some a
     | _ -> None
+
+  let find_config_opt m k =
+    match find_opt m k with
+    | Some (`Config a) -> Some a
+    | _ -> None
 end
 
 let add_etag_header time headers =

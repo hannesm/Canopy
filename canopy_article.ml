@@ -71,13 +71,13 @@ let to_tyxml_tags tags =
       h2 [pcdata "Tags"];
       div ~a:[a_class ["list-group listing"]] [html]]]
 
-let to_atom ({ title; author; abstract; uri; created; updated; tags; content; } as article) =
+let to_atom cache ({ title; author; abstract; uri; created; updated; tags; content; } as article) =
   let text x : Syndic.Atom.text_construct = Syndic.Atom.Text x in
   let summary = match abstract with
     | Some x -> Some (text x)
     | None -> None
   in
-  let root = Canopy_config.((config ()).root) 
+  let root = Canopy_config.root cache
   in
   let categories =
     List.map
@@ -87,7 +87,7 @@ let to_atom ({ title; author; abstract; uri; created; updated; tags; content; } 
   let generate_id { created; _ } =
     let open Uuidm in
     let stamp = Ptime.to_rfc3339 created in
-    let uuid = Canopy_config.((config ()).uuid) in
+    let uuid = Canopy_config.uuid cache in
     let entry_id = to_string (v5 (create (`V5 (ns_dns, stamp))) uuid) in
     Printf.sprintf "urn:uuid:%s" entry_id
     |> Uri.of_string

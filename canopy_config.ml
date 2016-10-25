@@ -1,14 +1,6 @@
-type t = {
-  remote_uri : string;
-  remote_branch : string option;
-  blog_name : string;
-  index_page : string;
-  port : int;
-  push_hook_path: string;
-  tls_port : int option;
-  uuid : string;
-  root : string;
-}
+open Canopy_utils
+
+exception Required_config of string
 
 let decompose_git_url url =
     match String.rindex url '#' with
@@ -21,14 +13,34 @@ let decompose_git_url url =
 let remote_uri () = fst (decompose_git_url (Key_gen.remote ()))
 let remote_branch () = snd (decompose_git_url (Key_gen.remote ()))
 
-let config () = {
-  remote_uri = remote_uri ();
-  remote_branch = remote_branch ();
-  index_page = Key_gen.index ();
-  blog_name = Key_gen.name ();
-  port = Key_gen.port ();
-  push_hook_path = Key_gen.push_hook ();
-  tls_port = Key_gen.tls_port ();
-  uuid = Key_gen.uuid ();
-  root = Key_gen.root ();
-}
+let index_page cache =
+  match KeyMap.find_config_opt cache [".config";"index_page"] with
+    None -> "Index"
+  | Some p -> p
+
+let blog_name cache =
+  match KeyMap.find_config_opt cache [".config";"blog_name"] with
+    None -> "Canopy"
+  | Some n -> n
+
+let uuid cache =
+  match KeyMap.find_config_opt cache [".config";"uuid"] with
+    None -> raise (Required_config "uuid")
+  | Some u -> u
+
+let root cache =
+  match KeyMap.find_config_opt cache [".config";"root"] with
+    None -> "http://localhost"
+  | Some r -> r
+
+let port cache =
+  match KeyMap.find_config_opt cache [".config";"port"] with
+    None -> 8080
+  | Some s -> String.trim s |> int_of_string
+
+let tls_port cache =
+  match KeyMap.find_config_opt cache [".config";"tls_port"] with
+    None -> None
+  | Some s -> Some (String.trim s |> int_of_string)
+        
+let push_hook_path () = Key_gen.push_hook ()

@@ -13,15 +13,14 @@ module Store (C: CONSOLE) (CTX: Irmin_mirage.CONTEXT) (INFL: Git.Inflate.S) = st
 
   let store_config = Irmin_mem.config ()
   let task s = Irmin.Task.create ~date:0L ~owner:"Server" s
-  let config = Canopy_config.config ()
   let repo _ = Store.Repo.create store_config
 
   let new_task _ =
-    match config.remote_branch with
+    match remote_branch () with
     | None -> repo () >>= Store.master task
     | Some branch -> repo () >>= Store.of_branch_id task branch
 
-  let upstream = Irmin.remote_uri config.remote_uri
+  let upstream = Irmin.remote_uri (remote_uri ())
 
   let good_key = function
     | x::_ when x = "static" -> false
@@ -85,19 +84,32 @@ module Store (C: CONSOLE) (CTX: Irmin_mirage.CONTEXT) (INFL: Git.Inflate.S) = st
     | Some a, Some b -> Lwt.return (a, b)
     | _ -> raise (Invalid_argument "date_updated_last")
 
-  let fill_cache article_map =
+  let fill_cache cache =
     let module C = Canopy_content in
     let fold_fn key value acc =
       value () >>= fun content ->
       date_updated_created key >>= fun (updated, created) ->
       if not (good_key key) then
-        (article_map := KeyMap.add key (`Raw content) !article_map;
-         Lwt.return acc)
+        match key with
+        | "static"::_ ->
+          (cache := KeyMap.add key (`Raw content) !cache;
+           Lwt.return acc)
+        | ".config"::["uuid"] ->
+          (try
+             let _ = uuid !cache in Lwt.return acc
+           with (Required_config _) ->
+              (cache := KeyMap.add key (`Config content) !cache;
+               Lwt.return acc))
+        | ".config"::_ ->
+          (cache := KeyMap.add key (`Config content) !cache;
+            Lwt.return acc)
+        | _ ->
+          Lwt.return acc
       else
         let uri = String.concat "/" key in
         match C.of_string ~uri ~content ~created ~updated with
         | C.Ok article ->
-          article_map := KeyMap.add key (`Article article) !article_map;
+          cache := KeyMap.add key (`Article article) !cache;
           Lwt.return acc
         | C.Error error ->
           let error_msg = Printf.sprintf "Error while parsing %s: %s" uri error in

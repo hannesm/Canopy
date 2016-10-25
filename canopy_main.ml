@@ -41,29 +41,28 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
     let module Store = Canopy_store.Store(C)(Context)(Inflator) in
     let open Canopy_utils in
     let cache = ref (KeyMap.empty) in
-    let open Canopy_config in
-    let config = config () in
+    Store.pull console >>= fun () ->
+    Store.fill_cache cache >>= fun l ->
     let update_atom, atom =
-      Canopy_syndic.atom config Store.last_commit_date cache
+      Canopy_syndic.atom Store.last_commit_date cache
     in
     let store_ops = {
       Canopy_dispatch.subkeys = Store.get_subkeys ;
       value = Store.get_key ;
       update =
         (fun () ->
-           cache := KeyMap.empty;
            Store.pull console >>= fun () ->
            Store.fill_cache cache >>= fun res ->
            update_atom () >|= fun () ->
            res);
       last_commit = Store.last_commit_date ;
     } in
-    store_ops.Canopy_dispatch.update () >>= fun l ->
+    update_atom () >>= fun () ->
     Lwt_list.iter_p (C.log_s console) l >>= fun () ->
     let disp hdr =
-      `Dispatch (config, hdr, store_ops, atom, cache, started)
+      `Dispatch (hdr, store_ops, atom, cache, started)
     in
-    (match config.tls_port with
+    (match Canopy_config.tls_port !cache with
      | Some tls_port ->
        let redir uri =
          let https = Uri.with_scheme uri (Some "https") in
@@ -74,7 +73,7 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
          Uri.with_port https port
        in
        let http = HTTP.listen (D.create console (`Redirect redir)) in
-       S.listen_tcpv4 stack ~port:config.port http ;
+       S.listen_tcpv4 stack ~port:(Canopy_config.port !cache) http ;
        C.log_s console
          (let redirect =
             let req = Uri.of_string "http://127.0.0.1" in
@@ -82,7 +81,7 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
             Uri.to_string (redir req)
           in
           Printf.sprintf "HTTP server listening on port %d (redirecting to %s)"
-            config.port redirect
+            (Canopy_config.port !cache) redirect
          ) >>= fun () ->
        tls_init keys >>= fun tls_conf ->
        let hdr = Cohttp.Header.init_with
@@ -96,9 +95,9 @@ module Main  (C: CONSOLE) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirag
      | None ->
        let hdr = Cohttp.Header.init () in
        let http = HTTP.listen (D.create console (disp hdr)) in
-       S.listen_tcpv4 stack ~port:config.port http ;
+       S.listen_tcpv4 stack ~port:(Canopy_config.port !cache) http ;
        C.log_s console
-         (Printf.sprintf "HTTP server listening on port %d" config.port)
+         (Printf.sprintf "HTTP server listening on port %d" (Canopy_config.port !cache))
     ) >>= fun () ->
     S.listen stack
 end
