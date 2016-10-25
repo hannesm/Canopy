@@ -13,19 +13,24 @@ module Store (C: CONSOLE) (CTX: Irmin_mirage.CONTEXT) (INFL: Git.Inflate.S) = st
 
   let store_config = Irmin_mem.config ()
   let task s = Irmin.Task.create ~date:0L ~owner:"Server" s
-  let config = Canopy_config.config ()
   let repo _ = Store.Repo.create store_config
 
   let new_task _ =
-    match config.remote_branch with
+    match remote_branch () with
     | None -> repo () >>= Store.master task
     | Some branch -> repo () >>= Store.of_branch_id task branch
 
-  let upstream = Irmin.remote_uri config.remote_uri
+  let upstream = Irmin.remote_uri (remote_uri ())
+
+  let good_key = function
+    | x::_ when x = "static" -> false
+    | x::_ when String.length x > 0 && String.get x 0 = '.' -> false
+    | _ -> true
 
   let get_subkeys key =
     new_task () >>= fun t ->
-    Store.list (t "Reading posts") key
+    Store.list (t "Reading posts") key >|= fun keys ->
+    List.filter good_key keys
 
   let get_key key =
     new_task () >>= fun t ->
@@ -51,8 +56,8 @@ module Store (C: CONSOLE) (CTX: Irmin_mirage.CONTEXT) (INFL: Git.Inflate.S) = st
          Lwt.return (C.log console msg))
 
   let created_updated_ids commit key =
-    new_task () >>= fun t ->
     repo () >>= fun repo ->
+    Store.master task repo >>= fun t  ->
     Store.history (t "Reading history") >>= fun history ->
     let aux commit_id acc =
       Store.of_commit_id (Irmin.Task.none) commit_id repo >>= fun store ->
@@ -84,17 +89,28 @@ module Store (C: CONSOLE) (CTX: Irmin_mirage.CONTEXT) (INFL: Git.Inflate.S) = st
     let fold_fn key value acc =
       value () >>= fun content ->
       date_updated_created key >>= fun (updated, created) ->
-      let uri = String.concat "/" key in
-      match C.of_string ~uri ~content ~created ~updated with
-      | C.Ok article ->
-        article_map := KeyMap.add key article !article_map;
-        Lwt.return acc
-      | C.Error error ->
-        let error_msg = Printf.sprintf "Error while parsing %s: %s" uri error in
-        Lwt.return (error_msg::acc)
-      | C.Unknown ->
-        let error_msg = Printf.sprintf "%s : Unknown content type" uri in
-        Lwt.return (error_msg::acc)
+      if not (good_key key) then
+        match key with
+        | x::_ when x = "static" ->
+          (article_map := KeyMap.add key (`Raw content) !article_map;
+         Lwt.return acc)
+        | x::_ when x = ".config" ->
+         (article_map := KeyMap.add key (`Config content) !article_map;
+          Lwt.return acc)
+        | _ ->
+          Lwt.return acc
+      else
+        let uri = String.concat "/" key in
+        match C.of_string ~uri ~content ~created ~updated with
+        | C.Ok article ->
+          article_map := KeyMap.add key (`Article article) !article_map;
+          Lwt.return acc
+        | C.Error error ->
+          let error_msg = Printf.sprintf "Error while parsing %s: %s" uri error in
+          Lwt.return (error_msg::acc)
+        | C.Unknown ->
+          let error_msg = Printf.sprintf "%s : Unknown content type" uri in
+          Lwt.return (error_msg::acc)
     in
     new_task () >>= fun t ->
     fold (t "Folding through values") fold_fn []

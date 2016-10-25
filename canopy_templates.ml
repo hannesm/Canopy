@@ -17,14 +17,14 @@ let taglist tags =
 
 let links keys =
   let paths = List.map (function
-			 | x::_ -> x
-			 | _ -> assert false
-		       ) keys |> List.sort_uniq (Pervasives.compare) in
+       | x::_ -> x
+       | _ -> assert false
+           ) keys |> List.sort_uniq (Pervasives.compare) in
   let format_link link =
     li [ a ~a:[a_href ("/" ^ link)] [span [pcdata link]]] in
  List.map format_link paths
 
-let main ~config ~content ~title ~keys =
+let main ~cache ~content ~title ~keys =
   let links = links keys in
   let page =
     html
@@ -52,7 +52,7 @@ let main ~config ~content ~title ~keys =
                    span ~a:[a_class ["icon-bar"]][];
                    span ~a:[a_class ["icon-bar"]][]
                  ];
-                 a ~a:[a_class ["navbar-brand"]; a_href ("/" ^ config.index_page)][pcdata config.blog_name]
+                 a ~a:[a_class ["navbar-brand"]; a_href ("/" ^ index_page cache)][pcdata (blog_name cache)]
                ];
                div ~a:[a_class ["collapse navbar-collapse collapse"]] [
                  ul ~a:[a_class ["nav navbar-nav navbar-right"]] links
@@ -72,7 +72,7 @@ let main ~config ~content ~title ~keys =
 
 let listing entries =
   [div ~a:[a_class ["flex-container"]] [
-	 div ~a:[a_class ["list-group listing"]] entries
+   div ~a:[a_class ["list-group listing"]] entries
        ]
   ]
 
