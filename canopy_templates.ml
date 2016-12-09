@@ -35,7 +35,8 @@ let main ~cache ~content ~title ~keys =
            (* link ~rel:[`Stylesheet] ~href:"/static/css/bootstrap.min.css" (); *)
            link ~rel:[`Stylesheet] ~href:"/static/css/style.css" ();
            link ~rel:[`Stylesheet] ~href:"/static/css/highlight.css" ();
-           (* script ~a:[a_src "/static/js/canopy.js"] (pcdata ""); *)
+           script ~a:[a_src "/static/js/highlight.pack.js"] (pcdata "");
+           script (pcdata "hljs.initHighlightingOnLoad();");
            link ~rel:[`Alternate] ~href:"/atom" ~a:[a_title title; a_mime_type "application/atom+xml"] ();
          ])
       )
