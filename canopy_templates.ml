@@ -34,7 +34,7 @@ let main ~cache ~content ~title ~keys =
            meta ~a:[a_charset "UTF-8"] ();
            (* link ~rel:[`Stylesheet] ~href:"/static/css/bootstrap.min.css" (); *)
            link ~rel:[`Stylesheet] ~href:"/static/css/style.css" ();
-           link ~rel:[`Stylesheet] ~href:"/static/css/highlight.css" ();
+           (* link ~rel:[`Stylesheet] ~href:"/static/css/highlight.css" (); *)
            (* script ~a:[a_src "/static/js/canopy.js"] (pcdata ""); *)
            link ~rel:[`Alternate] ~href:"/atom" ~a:[a_title title; a_mime_type "application/atom+xml"] ();
          ])
