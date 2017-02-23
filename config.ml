@@ -25,7 +25,7 @@ let tls_port_k =
 
 let packages = [
   package "omd" ;
-  package "tyxml";
+  package ~min:"4.0.0" "tyxml";
   package "ptime";
   package "decompress";
   package "irmin";
@@ -34,7 +34,7 @@ let packages = [
   package "mirage-flow";
   package ~sublibs:["mirage"] "tls";
   package "re";
-  package "cohttp";
+  package ~min:"0.21.0" "cohttp";
   package "syndic";
   package "magic-mime";
   package "uuidm";
