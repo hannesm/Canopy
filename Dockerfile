@@ -11,7 +11,6 @@ WORKDIR /src
 ADD tls /src/tls
 RUN sudo chown -R opam:opam /src; sudo chmod -R 700 /src
 ENV TMP /tmp
-RUN opam pin add tyxml --dev
 RUN opam install -y -j2 mirage
 COPY . /src
 ADD assets /src/assets
@@ -21,4 +20,4 @@ RUN opam config exec -- make depend
 RUN opam config exec -- make
 RUN sudo mkdir /tmp/assets ; sudo chown opam:opam /tmp/assets ; ./populate.sh /tmp/assets
 EXPOSE 8080
-ENTRYPOINT ["opam", "config", "exec", "--", "./mir-canopy"]
+ENTRYPOINT ["opam", "config", "exec", "--", "./canopy"]
