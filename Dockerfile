@@ -2,8 +2,8 @@ FROM ocaml/opam:debian-stable_ocaml-4.03.0
 MAINTAINER canopy
 ENV OPAMYES 1
 RUN sudo apt-get update
-RUN sudo apt-get -yy install npm
-RUN sudo ln -s `which nodejs` /usr/bin/node
+RUN curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+RUN sudo apt-get install -yy nodejs
 RUN sudo npm install -g less browserify
 RUN cd /home/opam/opam-repository && git pull && opam update
 ADD package.json README.md config.ml /src/
