@@ -25,8 +25,8 @@ let deflate ?(level = 4) buff =
      size_buffer)
     (Decompress.Deflate.default ~proof:Decompress.B.proof_bytes level)
   |> function
-     | Ok t -> Cstruct.of_string @@ Buffer.contents res
-     | Error exn -> failwith "Deflate.deflate"
+     | Ok _t -> Cstruct.of_string @@ Buffer.contents res
+     | Error _exn -> failwith "Deflate.deflate"
 
 let inflate ?output_size orig =
   let res = Buffer.create (match output_size with Some len -> len | None -> size_buffer) in
@@ -50,7 +50,7 @@ let inflate ?output_size orig =
 
       Buffer.add_subbytes res output_buffer 0 (used_out t);
       loop ~refill:(used_in t) (flush 0 size_buffer t)
-    | `Error (t, exn) -> None
+    | `Error (_t, _exn) -> None
     | `End t ->
       Mstruct.shift orig (used_in t - rest);
 
