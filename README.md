@@ -31,13 +31,15 @@ header (containing `max-age=31536000`).
 
 ### Compiling and running Canopy
 
-You will need at least `OCaml 4.02.3`, `opam 1.2` and `mirage 3.0.0` before starting. To setup a mirage environment, please refer to the mirage website.
+You will need at least `OCaml 4.02.3`, `opam 1.2` and `mirage 3.0.0` before starting. To setup a mirage environment, please refer to [the mirage website](https://mirage.io/).
 
 Checkout Canopy repository, then go inside:
 
 ```sh
 # Configure the mirage application, compile assets
-mirage configure --unix
+mirage configure -t unix
+# Get dependencies
+make depend
 # Compile Canopy
 make
 # Run it
