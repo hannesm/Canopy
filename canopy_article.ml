@@ -5,6 +5,7 @@ type t = {
   title : string;
   content : string;
   author : string;
+  author_uri : string option;
   abstract : string option;
   uri : string;
   created: Ptime.t;
@@ -24,13 +25,14 @@ let of_string base_uuid meta uri created updated content =
         | None -> None
         | Some x -> Some (Omd.to_html (Omd.of_string x))
     in
+    let author_uri = assoc_opt "author_url" meta in
     let uuid =
       let open Uuidm in
       let stamp = Ptime.to_rfc3339 created in
       let entry_id = to_string (v5 (create (`V5 (ns_dns, stamp))) base_uuid) in
       Printf.sprintf "urn:uuid:%s" entry_id
     in
-    Some {title; content; author; uri; abstract; created; updated; tags; uuid}
+    Some {title; content; author; author_uri; uri; abstract; created; updated; tags; uuid}
   with
   | _ -> None
 
@@ -42,9 +44,13 @@ let to_tyxml article =
       [ "Published:" ; created ; "(last updated:" ; updated ^ ")" ]
   in
   let tags = Canopy_templates.taglist article.tags in
+  let author_span_or_a = match article.author_uri with
+    | None -> span ~a:[a_class ["author"]] [pcdata author]
+    | Some a_uri -> a ~a:[a_class ["author"]; a_href a_uri] [pcdata author]
+  in
   [div ~a:[a_class ["post"]] [
       h2 [pcdata article.title];
-      span ~a:[a_class ["author"]] [pcdata author];
+      author_span_or_a;
       br ();
       tags;
       span ~a:[a_class ["date"]] [pcdata updated];
