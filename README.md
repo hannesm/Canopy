@@ -158,6 +158,7 @@ The file syntax of articles is just plain markdown, everything should be support
 ---
 title: A blog entry
 author: Me
+author_url: www.an_optional_link_that_wraps_the_author.com
 abstract: A simple line telling what this article is all about, will be displayed in listing pages. (optional)
 ---
 article content
