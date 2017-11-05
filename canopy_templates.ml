@@ -13,17 +13,12 @@ let taglist tags =
      [ div ~a:[a_class ["tags"]] ([pcdata "Classified under: "] ++ tags) ]
 
 let links keys =
-  let paths = List.map (function
-			 | x::_ -> x
-			 | _ -> assert false
-		       ) keys |> List.sort_uniq (Pervasives.compare) in
   let format_link link =
     li [ a ~a:[a_href ("/" ^ link)] [span [pcdata link]]] in
-  List.map format_link paths
+  List.map format_link keys
 
 let main ~cache ~content ?footer ~title ~keys =
   let idx = index_page cache in
-  let keys = List.filter (function [ x ] when x = idx -> false | _ -> true) keys in
   let links = links keys in
   let footer = match footer with
     | None -> []
