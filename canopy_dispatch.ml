@@ -29,7 +29,11 @@ module Make (S: Cohttp_lwt.Server) = struct
         S.respond_string ~headers ~status:`OK ~body ()
     in
     let respond_html ~headers ~content ~title ~updated =
-      store.subkeys [] >>= fun keys ->
+      store.value [ ".config" ; "header" ] >>= fun keys ->
+      (match keys with
+       | None -> store.subkeys [] >|= fun keys ->
+         List.map (function x::_ -> x | [] -> assert false) keys
+       | Some x -> Lwt.return (Astring.String.cuts ~sep:"\n" x)) >>= fun keys ->
       store.value [ ".config" ; "footer" ] >>= fun footer ->
       let body = Canopy_templates.main ~cache:(!cache) ~content ?footer ~title ~keys in
       let headers = html_headers headers updated in
