@@ -42,7 +42,8 @@ module Make (S: Cohttp_mirage.Server.S) = struct
     in
     let respond_html ~headers ~content ~title ~updated =
       store.subkeys [] >>= fun keys ->
-      let body = Canopy_templates.main ~cache:(!cache) ~content ~title ~keys in
+      store.value [ ".config" ; "footer" ] >>= fun footer ->
+      let body = Canopy_templates.main ~cache:(!cache) ~content ?footer ~title ~keys in
       let headers = html_headers headers updated in
       respond_if_modified ~headers ~body ~updated
     and respond_update () = S.respond_string ~headers ~status:`OK ~body:"" ()
@@ -105,6 +106,10 @@ module Make (S: Cohttp_mirage.Server.S) = struct
                 ))
         | Some (`Article article) ->
           let title, content = Canopy_content.to_tyxml article in
+          let title = match title with
+            | None -> Canopy_config.blog_name !cache
+            | Some t -> t
+          in
           let updated = Canopy_content.updated article in
           respond_html ~headers ~title ~content ~updated
         | Some (`Raw (body, updated)) ->

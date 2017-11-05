@@ -2,9 +2,9 @@ open Canopy_utils
 open Tyxml.Html
 
 type t = {
-  title : string;
+  title : string option;
   content : string;
-  author : string;
+  author : string option;
   author_uri : string option;
   abstract : string option;
   uri : string;
@@ -18,8 +18,8 @@ let of_string base_uuid meta uri created updated content =
   try
     let split_tags = Re.Str.split (Re.Str.regexp ",") in
     let content = Omd.to_html (Omd.of_string content) in
-    let author = List.assoc "author" meta in
-    let title = List.assoc "title" meta in
+    let author = assoc_opt "author" meta in
+    let title = assoc_opt "title" meta in
     let tags = assoc_opt "tags" meta |> map_opt split_tags [] |> List.map String.trim in
     let abstract = match assoc_opt "abstract" meta with
         | None -> None
@@ -37,40 +37,47 @@ let of_string base_uuid meta uri created updated content =
   | _ -> None
 
 let to_tyxml article =
-  let author = "Written by " ^ article.author in
+  let title = match article.title with
+    | None -> []
+    | Some t -> [ h2 [ pcdata t ] ]
+  in
+  let author = match article.author with
+    | None -> []
+    | Some auth ->
+      let a_class = [a_class ["author"]]
+      and data = [pcdata ("Written by " ^ auth)]
+      in
+      match article.author_uri with
+      | None -> [ span ~a:a_class data ; br () ]
+      | Some a_uri -> [ a ~a:(a_class@[a_href a_uri]) data ; br () ]
+  in
   let created = ptime_to_pretty_date article.created in
   let updated = ptime_to_pretty_date article.updated in
   let updated = String.concat " "
       [ "Published:" ; created ; "(last updated:" ; updated ^ ")" ]
   in
   let tags = Canopy_templates.taglist article.tags in
-  let author_span_or_a = match article.author_uri with
-    | None -> span ~a:[a_class ["author"]] [pcdata author]
-    | Some a_uri -> a ~a:[a_class ["author"]; a_href a_uri] [pcdata author]
-  in
-  [div ~a:[a_class ["post"]] [
-      h2 [pcdata article.title];
-      author_span_or_a;
-      br ();
-      tags;
-      span ~a:[a_class ["date"]] [pcdata updated];
-      br ();
+  [div ~a:[a_class ["post"]] (
+      title @ author @
+      tags @ [
+      span ~a:[a_class ["date"]] [pcdata updated] ;
       Tyxml.Html.article [Unsafe.data article.content]
-    ]]
+    ])]
 
 let to_tyxml_listing_entry article =
-  let author = "Written by " ^ article.author in
+  let title = match article.title with
+    | None -> []
+    | Some t -> [ h2 ~a:[a_class ["list-group-item-heading"]] [pcdata t] ]
+  in
+  let author = match article.author with
+    | None -> []
+    | Some auth ->
+      [ span ~a:[a_class ["author"]] [pcdata ("Written by " ^ auth)] ; br () ]
+  in
   let abstract = match article.abstract with
     | None -> []
     | Some abstract -> [p ~a:[a_class ["list-group-item-text abstract"]] [Unsafe.data abstract]] in
-  let created = ptime_to_pretty_date article.created in
-  let content = [
-    h2 ~a:[a_class ["list-group-item-heading"]] [pcdata article.title];
-    span ~a:[a_class ["author"]] [pcdata author];
-    pcdata " ";
-    time [pcdata created];
-    br ();
-  ] in
+  let content = title @ author in
   a ~a:[a_href ("/" ^ article.uri); a_class ["list-group-item"]] (content ++ abstract)
 
 let to_tyxml_tags tags =
@@ -100,6 +107,8 @@ let to_atom cache ({ title; author; abstract; uri; created; updated; tags; conte
       (fun x -> Syndic.Atom.category ~scheme:(Uri.of_string (root ^ "/tags/" ^ x)) x)
       tags
   in
+  let author = match author with None -> "canopy" | Some a -> a in
+  let title = match title with None -> "no title" | Some t -> t in
   Syndic.Atom.entry
     ~id:(Uri.of_string uuid)
     ~content:(Syndic.Atom.Html (None, content))
