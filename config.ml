@@ -30,7 +30,7 @@ let packages = [
   package ~min:"0.5" "decompress";
   package ~min:"1.0.0" "irmin";
   package "irmin-mirage";
-  package "mirage-http";
+  package "cohttp-mirage";
   package "mirage-flow";
   package ~sublibs:["mirage"] "tls";
   package "re";
