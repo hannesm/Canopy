@@ -61,7 +61,7 @@ let () =
   in
   register "canopy" [
     foreign
-      ~deps:[ abstract nocrypto ; abstract logger ]
+      ~deps:[ abstract nocrypto ; abstract logger ; abstract app_info ]
       ~keys
       ~packages
       "Canopy_main.Main"
