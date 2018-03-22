@@ -38,7 +38,12 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
 
   module Store = Canopy_store
 
-  let start stack resolver conduit _clock keys _ _ =
+  let start stack resolver conduit _clock keys _ _ info =
+    Logs.info (fun m -> m "used packages: %a"
+                  Fmt.(Dump.list @@ pair ~sep:(unit ".") string string)
+                  info.Mirage_info.packages) ;
+    Logs.info (fun m -> m "used libraries: %a"
+                  Fmt.(Dump.list string) info.Mirage_info.libraries) ;
     Store.pull ~conduit ~resolver >>= fun () ->
     Store.base_uuid () >>= fun uuid ->
     Store.fill_cache uuid >>= fun new_cache ->
