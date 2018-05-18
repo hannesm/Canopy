@@ -2,10 +2,9 @@ open Lwt.Infix
 open Canopy_config
 open Canopy_utils
 
-module Store (CTX: Irmin_git.IO) (INFL: Git.Inflate.S) = struct
+module Store (C: Git_mirage.Net.CONDUIT) = struct
 
-  module Hash = Irmin.Hash.SHA1
-  module Mirage_git_memory = Irmin_mirage.Git.Mem.KV(CTX)(INFL)
+  module Mirage_git_memory = Irmin_mirage.Git.KV(C)(Irmin_git.Mem(Digestif.SHA1))
   module Store = Mirage_git_memory(Irmin.Contents.String)
   module Sync = Irmin.Sync(Store)
   module Topological = Graph.Topological.Make(Store.History)
