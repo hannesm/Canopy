@@ -21,6 +21,26 @@ let tls_port_k =
   let doc = Key.Arg.info ~doc:"Enable TLS (using keys in `tls/`) on given port." ["tls"] in
   Key.(create "tls_port" Arg.(opt (some int) None doc))
 
+let dns_key =
+  let doc = Key.Arg.info ~doc:"nsupdate key (name:type:value,...)" ["dns-key"] in
+  Key.(create "dns-key" Arg.(required string doc))
+
+let dns_server =
+  let doc = Key.Arg.info ~doc:"dns server IP" ["dns-server"] in
+  Key.(create "dns-server" Arg.(required ipv4_address doc))
+
+let dns_port =
+  let doc = Key.Arg.info ~doc:"dns server port" ["dns-port"] in
+  Key.(create "dns-port" Arg.(opt int 53 doc))
+
+let hostname =
+  let doc = Key.Arg.info ~doc:"hostname" ["hostname"] in
+  Key.(create "hostname" Arg.(required string doc))
+
+let key_seed =
+  let doc = Key.Arg.info ~doc:"certificate key seed" ["key-seed"] in
+  Key.(create "key-seed" Arg.(required string doc))
+
 (* Dependencies *)
 
 let packages = [
@@ -40,6 +60,7 @@ let packages = [
   package "magic-mime";
   package "uuidm";
   package "logs";
+  package ~sublibs:["mirage.certify"] "udns" ;
 ]
 
 
@@ -58,6 +79,11 @@ let () =
       abstract remote_k;
       abstract port_k;
       abstract tls_port_k;
+      abstract dns_key ;
+      abstract dns_server ;
+      abstract dns_port ;
+      abstract hostname ;
+      abstract key_seed
     ])
   in
   register "canopy" [
@@ -66,10 +92,11 @@ let () =
       ~keys
       ~packages
       "Canopy_main.Main"
-      (stackv4 @-> resolver @-> conduit @-> pclock @-> kv_ro @-> job)
+      (random @-> time @-> stackv4 @-> resolver @-> conduit @-> pclock @-> job)
+    $ default_random
+    $ default_time
     $ stack
     $ resolver_dns stack
     $ conduit_direct ~tls:true stack
     $ default_posix_clock
-    $ crunch "tls"
   ]

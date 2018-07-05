@@ -2,11 +2,11 @@ open Lwt
 open Mirage_types_lwt
 open Result
 
-module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) (KEYS: KV_RO) = struct
+module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) = struct
+  module DNS = Dns_mirage_certify.Make(R)(CLOCK)(T)(S)
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
-  module X509 = Tls_mirage.X509 (KEYS) (CLOCK)
 
   module HTTP  = Cohttp_mirage.Server(TCP)
   module HTTPS = Cohttp_mirage.Server(TLS)
@@ -32,13 +32,16 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
     Log.info (fun f -> f "%s:%d TCP established" (Ipaddr.V4.to_string peer) port);
     f tcp >>= fun () -> TCP.close tcp
 
-  let tls_init kv =
-    X509.certificate kv `Default >|= fun cert ->
-    Tls.Config.server ~certificates:(`Single cert) ()
+  let tls_init stack pclock =
+    DNS.retrieve_certificate stack pclock ~dns_key:(Key_gen.dns_key ())
+      ~hostname:(Domain_name.of_string_exn (Key_gen.hostname ()))
+      ~key_seed:(Key_gen.key_seed ())
+      (Key_gen.dns_server ()) (Key_gen.dns_port ()) >|= fun own_cert ->
+    Tls.Config.server ~certificates:own_cert ()
 
   module Store = Canopy_store
 
-  let start stack resolver conduit _clock keys _ _ info =
+  let start _random _time stack resolver conduit _clock _ _ info =
     Logs.info (fun m -> m "used packages: %a"
                   Fmt.(Dump.list @@ pair ~sep:(unit ".") string string)
                   info.Mirage_info.packages) ;
@@ -82,7 +85,7 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
        Log.info (fun f -> f "HTTP server listening on port %d, \
                              redirecting to https service on port %d"
                     port tls_port) ;
-       tls_init keys >|= fun tls_conf ->
+       tls_init stack pclock >|= fun tls_conf ->
        let hdr = Cohttp.Header.init_with
            "Strict-Transport-Security" "max-age=31536000" (* in seconds, roughly a year *)
        in
