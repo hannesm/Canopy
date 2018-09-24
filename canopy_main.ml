@@ -38,7 +38,6 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
 
   let start stack resolver conduit _clock keys _ =
     let module Context = struct
-      include Conduit_mirage
       let context = conduit
       let resolver = resolver
     end in

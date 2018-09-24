@@ -2,9 +2,9 @@ open Lwt.Infix
 open Canopy_config
 open Canopy_utils
 
-module Store (C: Git_mirage.Net.CONDUIT) = struct
+module Store (C: sig val context : Conduit_mirage.t val resolver : Resolver_lwt.t end) = struct
 
-  module Mirage_git_memory = Irmin_mirage.Git.KV(C)(Irmin_git.Mem(Digestif.SHA1))
+  module Mirage_git_memory = Irmin_mirage.Git.Mem.KV
   module Store = Mirage_git_memory(Irmin.Contents.String)
   module Sync = Irmin.Sync(Store)
   module Topological = Graph.Topological.Make(Store.History)
@@ -20,7 +20,8 @@ module Store (C: Git_mirage.Net.CONDUIT) = struct
     | None        -> repo () >>= Store.master
     | Some branch -> repo () >>= fun r -> Store.of_branch r branch
 
-  let upstream = Irmin.remote_uri (remote_uri ())
+  let upstream = Git_mirage.endpoint ~conduit:C.context ~resolver:C.resolver (Uri.of_string (remote_uri ()))
+  let upstream = Sync.remote upstream
 
   let walk t root =
     let todo = ref [] in
