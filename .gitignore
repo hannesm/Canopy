@@ -1,5 +1,6 @@
 _build/
 disk/
+_opam/
 
 key_gen.ml
 main.ml
