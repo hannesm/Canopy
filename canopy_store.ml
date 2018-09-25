@@ -2,8 +2,7 @@ open Lwt.Infix
 open Canopy_config
 open Canopy_utils
 
-module Mirage_git_memory = Irmin_mirage.Git.Mem.KV
-module Store = Mirage_git_memory(Irmin.Contents.String)
+module Store = Irmin_mirage.Git.Mem.KV(Irmin.Contents.String)
 module Sync = Irmin.Sync(Store)
 module Topological = Graph.Topological.Make(Store.History)
 
