@@ -33,7 +33,8 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
     f tcp >>= fun () -> TCP.close tcp
 
   let tls_init stack pclock =
-    DNS.retrieve_certificate stack pclock ~dns_key:(Key_gen.dns_key ())
+    DNS.retrieve_certificate ~ca:`Production
+      stack pclock ~dns_key:(Key_gen.dns_key ())
       ~hostname:(Domain_name.of_string_exn (Key_gen.hostname ()))
       ~key_seed:(Key_gen.key_seed ())
       (Key_gen.dns_server ()) (Key_gen.dns_port ()) >|= fun own_cert ->
