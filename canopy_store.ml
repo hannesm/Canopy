@@ -10,12 +10,14 @@ let src = Logs.Src.create "canopy-store" ~doc:"Canopy store logger"
 module Log = (val Logs.src_log src : Logs.LOG)
 
 let store_config = Irmin_mem.config ()
-let repo _ = Store.Repo.v store_config
+let repo () = Store.Repo.v store_config
 
 let store () =
   match remote_branch () with
   | None        -> repo () >>= Store.master
   | Some branch -> repo () >>= fun r -> Store.of_branch r branch
+
+let my_store = ref None
 
 let walk t root =
   let todo = ref [] in
@@ -45,15 +47,18 @@ let key_type = function
   | _ -> `Article
 
 let get_subkeys key =
-  store () >>= fun t ->
-  walk t key >|= fun keys ->
-  List.fold_left (fun acc (k, _) ->
-      if key_type k = `Article then k :: acc else acc
-    ) [] keys
+  match !my_store with
+  | None -> Lwt.return []
+  | Some t ->
+    walk t key >|= fun keys ->
+    List.fold_left
+      (fun acc (k, _) -> if key_type k = `Article then k :: acc else acc)
+      [] keys
 
 let get_key key =
-  store () >>= fun t ->
-  Store.find t key
+  match !my_store with
+  | None -> Lwt.return None
+  | Some t -> Store.find t key
 
 let fold t fn acc =
   let mut = Lwt_mutex.create () in
@@ -64,58 +69,67 @@ let fold t fn acc =
   >>= fun x -> x
 
 let base_uuid () =
-  get_key [".config" ; "uuid"] >|= function
-  | None -> invalid_arg ".config/uuid is required in the remote git repository"
-  | Some n -> String.trim n
+  match !my_store with
+  | None -> invalid_arg "no store found"
+  | Some t ->
+    walk t [] >>= fun keys ->
+    Logs.debug (fun m -> m "keys is %d" (List.length keys)) ;
+    List.iter (fun (k, _) -> Logs.debug (fun m -> m "found key %a"
+                                            Fmt.(list ~sep:(unit "/") string) k)) keys ;
+    get_key [".config" ; "uuid"] >|= function
+    | None -> invalid_arg ".config/uuid is required in the remote git repository"
+    | Some n -> String.trim n
 
 let pull ~conduit ~resolver =
-  let upstream =
-    Git_mirage.endpoint ~conduit ~resolver (Uri.of_string (remote_uri ()))
-  in
-  let upstream = Sync.remote upstream in
+  let upstream = Store.remote ~conduit ~resolver (remote_uri ()) in
   store () >>= fun t ->
   Log.info (fun f -> f "pulling repository") ;
   Lwt.catch
     (fun () ->
-       Sync.pull_exn t upstream `Set >|= fun _ ->
-       Log.info (fun f -> f "repository pulled"))
+       Sync.pull_exn t upstream `Set >|= fun () ->
+       Log.info (fun f -> f "repository pulled") ;
+       my_store := Some t)
     (fun e ->
        Log.warn (fun f -> f "failed pull %a" Fmt.exn e);
        Lwt.return ())
 
 let created_updated_ids commit key =
-  store () >>= fun t ->
-  Store.history t >>= fun history ->
-  let aux commit_id acc =
-    Store.of_commit commit_id >>= fun store ->
-    acc >>= fun (created, updated, last) ->
-    Store.find store key >|= fun data ->
-    match data, last with
-    | None  , None -> (created, updated, last)
-    | None  , Some _ -> (created, updated, last)
-    | Some x, Some y when x = y -> (created, updated, last)
-    | Some _, None -> (commit_id, commit_id, data)
-    | Some _, Some _ -> (created, commit_id, data)
-  in
-  Topological.fold aux history (Lwt.return (commit, commit, None))
+  match !my_store with
+  | None -> assert false
+  | Some t ->
+    Store.history t >>= fun history ->
+    let aux commit_id acc =
+      Store.of_commit commit_id >>= fun store ->
+      acc >>= fun (created, updated, last) ->
+      Store.find store key >|= fun data ->
+      match data, last with
+      | None  , None -> (created, updated, last)
+      | None  , Some _ -> (created, updated, last)
+      | Some x, Some y when x = y -> (created, updated, last)
+      | Some _, None -> (commit_id, commit_id, data)
+      | Some _, Some _ -> (created, commit_id, data)
+    in
+    Topological.fold aux history (Lwt.return (commit, commit, None))
 
 let date_updated_created key =
-  store () >>= fun t  ->
-  Store.Head.get t >>= fun head ->
-  created_updated_ids head key >>= fun (created_commit_id, updated_commit_id, _) ->
-  let to_ptime info =
-    Irmin.Info.date info |> Int64.to_float |> Ptime.of_float_s
-  in
-  Store.Commit.info updated_commit_id |> fun updated ->
-  Store.Commit.info created_commit_id |> fun created ->
-  match to_ptime updated, to_ptime created with
-  | Some a, Some b -> Lwt.return (a, b)
-  | _ -> raise (Invalid_argument "date_updated_last")
+  match !my_store with
+  | None -> assert false
+  | Some t ->
+    Store.Head.get t >>= fun head ->
+    created_updated_ids head key >>= fun (created_commit_id, updated_commit_id, _) ->
+    let to_ptime info =
+      Irmin.Info.date info |> Int64.to_float |> Ptime.of_float_s
+    in
+    Store.Commit.info updated_commit_id |> fun updated ->
+    Store.Commit.info created_commit_id |> fun created ->
+    match to_ptime updated, to_ptime created with
+    | Some a, Some b -> Lwt.return (a, b)
+    | _ -> raise (Invalid_argument "date_updated_last")
 
-  let check_redirect content =
-    match Astring.String.cut ~sep:"redirect:" content with
-    | None -> None
-    | Some (_, path) -> Some (Uri.of_string (String.trim path))
+let check_redirect content =
+  match Astring.String.cut ~sep:"redirect:" content with
+  | None -> None
+  | Some (_, path) -> Some (Uri.of_string (String.trim path))
 
 let fill_cache base_uuid =
   let module C = Canopy_content in
@@ -138,14 +152,17 @@ let fill_cache base_uuid =
           cache
         | Some uri -> KeyMap.add key (`Redirect uri) cache
   in
-  store () >>= fun t ->
-  fold t fn KeyMap.empty
+  match !my_store with
+  | None -> assert false
+  | Some t -> fold t fn KeyMap.empty
 
 let last_commit_date () =
-  store () >>= fun t  ->
-  Store.Head.get t >>= fun head ->
-  Store.Commit.info head |> fun info ->
-  let date = Irmin.Info.date info |> Int64.to_float in
-  Ptime.of_float_s date |> function
-  | Some o -> Lwt.return o
-  | None -> raise (Invalid_argument "date_updated_last")
+  match !my_store with
+  | None -> assert false
+  | Some t ->
+    Store.Head.get t >>= fun head ->
+    Store.Commit.info head |> fun info ->
+    let date = Irmin.Info.date info |> Int64.to_float in
+    Ptime.of_float_s date |> function
+    | Some o -> Lwt.return o
+    | None -> raise (Invalid_argument "date_updated_last")
