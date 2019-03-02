@@ -42,7 +42,7 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
 
   module Store = Canopy_store
 
-  let start _random _time stack resolver conduit _clock _ _ info =
+  let start _random _time stack resolver conduit pclock _ _ info =
     Logs.info (fun m -> m "used packages: %a"
                   Fmt.(Dump.list @@ pair ~sep:(unit ".") string string)
                   info.Mirage_info.packages) ;
