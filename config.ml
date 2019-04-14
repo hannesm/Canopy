@@ -23,11 +23,11 @@ let tls_port_k =
 
 let dns_key =
   let doc = Key.Arg.info ~doc:"nsupdate key (name:type:value,...)" ["dns-key"] in
-  Key.(create "dns-key" Arg.(required string doc))
+  Key.(create "dns-key" Arg.(opt string "" doc))
 
 let dns_server =
   let doc = Key.Arg.info ~doc:"dns server IP" ["dns-server"] in
-  Key.(create "dns-server" Arg.(required ipv4_address doc))
+  Key.(create "dns-server" Arg.(opt ipv4_address Ipaddr.V4.localhost doc))
 
 let dns_port =
   let doc = Key.Arg.info ~doc:"dns server port" ["dns-port"] in
@@ -60,7 +60,7 @@ let packages = [
   package "magic-mime";
   package "uuidm";
   package "logs";
-  package ~sublibs:["mirage.certify"] "udns" ;
+  package "udns-mirage-certify" ;
 ]
 
 

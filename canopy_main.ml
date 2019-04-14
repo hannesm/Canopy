@@ -3,7 +3,7 @@ open Mirage_types_lwt
 open Result
 
 module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) = struct
-  module DNS = Dns_mirage_certify.Make(R)(CLOCK)(T)(S)
+  module DNS = Udns_mirage_certify.Make(R)(CLOCK)(T)(S)
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
@@ -32,17 +32,18 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
     Log.info (fun f -> f "%s:%d TCP established" (Ipaddr.V4.to_string peer) port);
     f tcp >>= fun () -> TCP.close tcp
 
-  let tls_init stack pclock =
+  let tls_init stack =
     DNS.retrieve_certificate ~ca:`Production
-      stack pclock ~dns_key:(Key_gen.dns_key ())
+      stack ~dns_key:(Key_gen.dns_key ())
       ~hostname:(Domain_name.of_string_exn (Key_gen.hostname ()))
       ~key_seed:(Key_gen.key_seed ())
-      (Key_gen.dns_server ()) (Key_gen.dns_port ()) >|= fun own_cert ->
-    Tls.Config.server ~certificates:own_cert ()
+      (Key_gen.dns_server ()) (Key_gen.dns_port ()) >>= function
+    | Error (`Msg msg) -> Lwt.fail_with msg
+    | Ok own_cert -> Lwt.return (Tls.Config.server ~certificates:own_cert ())
 
   module Store = Canopy_store
 
-  let start _random _time stack resolver conduit pclock _ _ info =
+  let start _random _time stack resolver conduit _pclock _ _ info =
     Logs.info (fun m -> m "used packages: %a"
                   Fmt.(Dump.list @@ pair ~sep:(unit ".") string string)
                   info.Mirage_info.packages) ;
@@ -86,7 +87,7 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
        Log.info (fun f -> f "HTTP server listening on port %d, \
                              redirecting to https service on port %d"
                     port tls_port) ;
-       tls_init stack pclock >|= fun tls_conf ->
+       tls_init stack >|= fun tls_conf ->
        let hdr = Cohttp.Header.init_with
            "Strict-Transport-Security" "max-age=31536000" (* in seconds, roughly a year *)
        in
