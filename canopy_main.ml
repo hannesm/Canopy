@@ -3,7 +3,7 @@ open Mirage_types_lwt
 open Result
 
 module Main (R: RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) = struct
-  module DNS = Dns_mirage_certify.Make(R)(CLOCK)(T)(S)
+  module DNS = Udns_mirage_certify.Make(R)(CLOCK)(T)(S)
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
@@ -33,12 +33,13 @@ module Main (R: RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Condu
     f tcp >>= fun () -> TCP.close tcp
 
   let tls_init stack pclock =
-    DNS.retrieve_certificate ~ca:`Production stack pclock
+    DNS.retrieve_certificate ~ca:`Production stack
       ~dns_key:(Key_gen.dns_key ())
       ~hostname:(Domain_name.of_string_exn (Key_gen.hostname ()))
       ~key_seed:(Key_gen.key_seed ())
-      (Key_gen.dns_server ()) (Key_gen.dns_port ()) >|= fun own_cert ->
-    Tls.Config.server ~certificates:own_cert ()
+      (Key_gen.dns_server ()) (Key_gen.dns_port ()) >>= function
+    | Error (`Msg m) -> Lwt.fail_with m
+    | Ok own_cert -> Lwt.return (Tls.Config.server ~certificates:own_cert ())
 
   let start _random _time stack resolver conduit pclock _ _ info =
     Logs.info (fun m -> m "used packages: %a"

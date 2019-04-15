@@ -59,7 +59,7 @@ let packages = [
   package "magic-mime";
   package "uuidm";
   package "logs";
-  package ~sublibs:["mirage.certify"] "udns" ;
+  package "udns-mirage-certify" ;
 ]
 
 
@@ -67,7 +67,7 @@ let packages = [
 let stack =
   if_impl Key.is_unix
     (socket_stackv4 [Ipaddr.V4.any])
-    (static_ipv4_stack ~arp:farp default_network)
+    (static_ipv4_stack default_network)
 
 let logger =
   syslog_udp ~config:(syslog_config ~truncate:1484 "robur.io") stack
