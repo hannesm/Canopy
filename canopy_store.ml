@@ -2,7 +2,7 @@ open Lwt.Infix
 open Canopy_config
 open Canopy_utils
 
-module Store = Irmin_mirage.Git.Mem.KV(Irmin.Contents.String)
+module Store = Irmin_mirage_git.Mem.KV(Irmin.Contents.String)
 module Sync = Irmin.Sync(Store)
 module Topological = Graph.Topological.Make(Store.History)
 
@@ -69,10 +69,7 @@ let base_uuid () =
   | Some n -> String.trim n
 
 let pull ~conduit ~resolver =
-  let upstream =
-    Git_mirage.endpoint ~conduit ~resolver (Uri.of_string (remote_uri ()))
-  in
-  let upstream = Sync.remote upstream in
+  let upstream = Store.remote ~conduit ~resolver (remote_uri ()) in
   store () >>= fun t ->
   Log.info (fun f -> f "pulling repository") ;
   Lwt.catch
