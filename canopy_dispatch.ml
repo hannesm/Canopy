@@ -102,6 +102,31 @@ module Make (S: Cohttp_lwt.S.Server) = struct
           moved_permanently uri
       end
 
+
+  module Stat = struct
+    let create ~f =
+      let data = Hashtbl.create 13 in
+      (fun x ->
+         let key = f x in
+         let cur = match Hashtbl.find_opt data key with
+           | None -> 0
+           | Some x -> x
+         in
+         Hashtbl.replace data key (succ cur)),
+      (fun () ->
+         Hashtbl.fold (fun key value acc ->
+             Metrics.uint key value :: acc)
+           data [])
+    let counter_metrics ~f name =
+      let open Metrics in
+      let doc = "Counter metrics" in
+      let insert, get = create ~f in
+      let data len = insert len; Data.v (get ()) in
+      Src.v ~doc ~tags:Metrics.Tags.[] ~data name
+    let http_codes = counter_metrics ~f:string_of_int "http-status"
+    let http_meth = counter_metrics ~f:(fun x -> x) "http-methods"
+  end
+
   (* maybe this should be provided elsewhere *)
   let log request response =
     let open Cohttp in
@@ -116,7 +141,11 @@ module Make (S: Cohttp_lwt.S.Server) = struct
           (Code.string_of_version request.Request.version)
           (Code.code_of_status response.Response.status)
           (sget "Referer")
-          (sget "User-Agent"))
+          (sget "User-Agent"));
+    Metrics.add Stat.http_codes (fun x -> x)
+      (fun d -> d (Code.code_of_status response.Response.status));
+    Metrics.add Stat.http_meth (fun x -> x)
+      (fun d -> d (Code.string_of_method request.Request.meth))
 
   let create dispatch =
     let conn_closed (_, conn_id) =

@@ -62,6 +62,7 @@ let packages = [
   package "logs";
   package "dns-mirage-certify" ;
   package "monitoring-experiments" ;
+  package "metrics"
 ]
 
 
