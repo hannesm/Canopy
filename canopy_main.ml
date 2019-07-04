@@ -2,8 +2,8 @@ open Lwt
 open Mirage_types_lwt
 open Result
 
-module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) = struct
-  module DNS = Udns_mirage_certify.Make(R)(CLOCK)(T)(S)
+module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (M: MCLOCK) (CLOCK: PCLOCK) (KEYS : KV_RO) = struct
+  module DNS = Dns_mirage_certify.Make(R)(CLOCK)(T)(S)
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
@@ -13,6 +13,9 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
 
   module D  = Canopy_dispatch.Make(HTTP)
   module DS = Canopy_dispatch.Make(HTTPS)
+
+  module X = Tls_mirage.X509(KEYS)(CLOCK)
+  module Monitor = Monitoring_experiments.M.S(T)(CLOCK)(M)(S)
 
   let src = Logs.Src.create "canopy-main" ~doc:"Canopy main logger"
   module Log = (val Logs.src_log src : Logs.LOG)
@@ -35,7 +38,7 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
   let tls_init stack =
     DNS.retrieve_certificate ~ca:`Production
       stack ~dns_key:(Key_gen.dns_key ())
-      ~hostname:(Domain_name.of_string_exn (Key_gen.hostname ()))
+      ~hostname:(Domain_name.(host_exn (of_string_exn (Key_gen.hostname ()))))
       ~key_seed:(Key_gen.key_seed ())
       (Key_gen.dns_server ()) (Key_gen.dns_port ()) >>= function
     | Error (`Msg msg) -> Lwt.fail_with msg
@@ -43,12 +46,15 @@ module Main (R : RANDOM) (T: TIME) (S: STACKV4) (RES: Resolver_lwt.S) (CON: Cond
 
   module Store = Canopy_store
 
-  let start _random _time stack resolver conduit _pclock _ _ info =
+  let start _random _time stack resolver conduit _mclock _pclock keys _ _ info =
     Logs.info (fun m -> m "used packages: %a"
                   Fmt.(Dump.list @@ pair ~sep:(unit ".") string string)
                   info.Mirage_info.packages) ;
     Logs.info (fun m -> m "used libraries: %a"
                   Fmt.(Dump.list string) info.Mirage_info.libraries) ;
+    X.certificate keys (`Name "monitor") >>= fun (certs, key) ->
+    let c = `Single (certs, key) in
+    Monitor.create_tls ~hostname:"nqsb.full" stack c;
     Store.pull ~conduit ~resolver >>= fun () ->
     Store.base_uuid () >>= fun uuid ->
     Store.fill_cache uuid >>= fun new_cache ->

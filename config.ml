@@ -60,7 +60,8 @@ let packages = [
   package "magic-mime";
   package "uuidm";
   package "logs";
-  package "udns-mirage-certify" ;
+  package "dns-mirage-certify" ;
+  package "monitoring-experiments" ;
 ]
 
 
@@ -89,11 +90,13 @@ let () =
       ~keys
       ~packages
       "Canopy_main.Main"
-      (random @-> time @-> stackv4 @-> resolver @-> conduit @-> pclock @-> job)
+      (random @-> time @-> stackv4 @-> resolver @-> conduit @-> mclock @-> pclock @-> kv_ro @-> job)
     $ default_random
     $ default_time
     $ stack
     $ resolver_dns stack
     $ conduit_direct ~tls:true stack
+    $ default_monotonic_clock
     $ default_posix_clock
+    $ crunch "tls"
   ]
