@@ -166,10 +166,6 @@ let port_k =
   let doc = Key.Arg.info ~doc:"Socket port." ["p"; "port"] in
   Key.(create "port" Arg.(opt int 8080 doc))
 
-let tls_port_k =
-  let doc = Key.Arg.info ~doc:"Enable TLS (using keys in `tls/`) on given port." ["tls"] in
-  Key.(create "tls_port" Arg.(opt (some int) None doc))
-
 let ssh_seed =
   let doc = Key.Arg.info ~doc:"Seed for ssh private key." ["ssh-seed"] in
   Key.(create "ssh_seed" Arg.(opt (some string) None doc))
@@ -177,6 +173,18 @@ let ssh_seed =
 let ssh_authenticator =
   let doc = Key.Arg.info ~doc:"SSH host key authenticator." ["ssh-authenticator"] in
   Key.(create "ssh_authenticator" Arg.(opt (some string) None doc))
+
+let name =
+  let doc = Key.Arg.info ~doc:"Name of the unikernel" ["name"] in
+  Key.(create "name" Arg.(opt string "nqsb.io" doc))
+
+let monitor =
+  let doc = Key.Arg.info ~doc:"monitor host IP" ["monitor"] in
+  Key.(create "monitor" Arg.(opt (some ip_address) None doc))
+
+let syslog =
+  let doc = Key.Arg.info ~doc:"syslog host IP" ["syslog"] in
+  Key.(create "syslog" Arg.(opt (some ip_address) None doc))
 
 (* Dependencies *)
 
@@ -198,6 +206,8 @@ let packages = [
   package "magic-mime";
   package "uuidm";
   package "logs";
+  package ~min:"0.0.2" "monitoring-experiments";
+  package ~sublibs:["mirage"] "logs-syslog";
 ]
 
 
@@ -216,22 +226,24 @@ let mimic_impl =
     default_random default_monotonic_clock default_posix_clock default_time
     (paf_impl default_time stack)
 
+let management_stack = generic_stackv4v6 ~group:"management" (netif ~group:"management" "management")
+
 let () =
-  let keys = Key.([
-      abstract push_hook_k;
-      abstract remote_k;
-      abstract port_k;
-      abstract tls_port_k;
-    ])
-  in
+  let keys = [
+      Key.abstract push_hook_k;
+      Key.abstract remote_k;
+      Key.abstract port_k;
+      Key.abstract name ; Key.abstract syslog ; Key.abstract monitor ;
+    ] in
   register "canopy" [
     foreign
       ~keys
       ~packages
       "Canopy_main.Main"
-      (mimic @-> http @-> pclock @-> kv_ro @-> job)
+      (console @-> time @-> mimic @-> http @-> pclock @-> stackv4v6 @-> job)
+    $ default_console $ default_time
     $ mimic_impl
-    $ cohttp_server (conduit_direct ~tls:true stack)
+    $ cohttp_server (conduit_direct ~tls:false stack)
     $ default_posix_clock
-    $ crunch "tls"
+    $ management_stack
   ]

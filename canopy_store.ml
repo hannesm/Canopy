@@ -110,22 +110,47 @@ let date_updated_created key =
   | Some a, Some b -> Lwt.return (a, b)
   | _ -> raise (Invalid_argument "date_updated_last")
 
-  let check_redirect content =
-    match Astring.String.cut ~sep:"redirect:" content with
-    | None -> None
-    | Some (_, path) -> Some (Uri.of_string (String.trim path))
+let reset_content, cache_content =
+  let s = ref (0, 0, 0, 0) in
+  let open Metrics in
+  let doc = "cache statistics" in
+  let data (static, config, article, redirect) =
+    Data.v [
+      int "static" static ;
+      int "config" config ;
+      int "artcle" article ;
+      int "redirect" redirect ;
+    ] in
+  let src = Src.v ~doc ~tags:Tags.[] ~data "canopy-store" in
+  (fun () -> s := (0, 0, 0, 0)),
+  (fun a ->
+     let static, config, article, redirect = !s in
+     let s' = match a with
+       | `Static -> succ static, config, article, redirect
+       | `Config -> static, succ config, article, redirect
+       | `Article -> static, config, succ article, redirect
+       | `Redirect -> static, config, article, succ redirect
+     in
+     s := s';
+     Metrics.add src (fun x -> x) (fun d -> d !s))
+
+let check_redirect content =
+  match Astring.String.cut ~sep:"redirect:" content with
+  | None -> None
+  | Some (_, path) -> Some (Uri.of_string (String.trim path))
 
 let fill_cache base_uuid =
   let module C = Canopy_content in
+  reset_content ();
   let fn key content cache =
     date_updated_created key >|= fun (updated, created) ->
     match key_type key with
-    | `Static -> KeyMap.add key (`Raw (content, updated)) cache
-    | `Config -> KeyMap.add key (`Config (String.trim content)) cache
+    | `Static -> cache_content `Static; KeyMap.add key (`Raw (content, updated)) cache
+    | `Config -> cache_content `Config; KeyMap.add key (`Config (String.trim content)) cache
     | `Article ->
       let uri = String.concat "/" key in
       match C.of_string ~base_uuid ~uri ~content ~created ~updated with
-      | C.Ok article -> KeyMap.add key (`Article article) cache
+      | C.Ok article -> cache_content `Article; KeyMap.add key (`Article article) cache
       | C.Unknown ->
         Log.warn (fun f -> f "%s : Unknown content type" uri) ;
         cache
@@ -134,7 +159,7 @@ let fill_cache base_uuid =
         | None ->
           Log.warn (fun f -> f "Error while parsing %s: %s" uri error) ;
           cache
-        | Some uri -> KeyMap.add key (`Redirect uri) cache
+        | Some uri -> cache_content `Redirect; KeyMap.add key (`Redirect uri) cache
   in
   store () >>= fun t ->
   fold t fn KeyMap.empty

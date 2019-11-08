@@ -7,6 +7,18 @@ type store_ops = {
   last_commit : unit -> Ptime.t Lwt.t ;
 }
 
+let http_status =
+  let f = function
+    | #Cohttp.Code.informational_status -> "1xx"
+    | #Cohttp.Code.success_status -> "2xx"
+    | #Cohttp.Code.redirection_status -> "3xx"
+    | #Cohttp.Code.client_error_status -> "4xx"
+    | #Cohttp.Code.server_error_status -> "5xx"
+    | `Code c -> Printf.sprintf "%dxx" (c / 100)
+  in
+  let src = Monitoring_experiments.counter_metrics ~f "http_response" in
+  (fun r -> Metrics.add src (fun x -> x) (fun d -> d r))
+
 module Make (S: Cohttp_mirage.Server.S) = struct
 
   let src = Logs.Src.create "canopy-dispatch" ~doc:"Canopy dispatch logger"
@@ -105,11 +117,12 @@ module Make (S: Cohttp_mirage.Server.S) = struct
   (* maybe this should be provided elsewhere *)
   let log request response =
     let open Cohttp in
+    http_status response.Response.status;
     let sget k = match Header.get request.Request.headers k with
       | None -> "-"
       | Some x -> x
     in
-    Log.info (fun f ->
+    Log.debug (fun f ->
         f "\"%s %s %s\" %d \"%s\" \"%s\""
           (Code.string_of_method request.Request.meth)
           request.Request.resource
@@ -118,20 +131,23 @@ module Make (S: Cohttp_mirage.Server.S) = struct
           (sget "Referer")
           (sget "User-Agent"))
 
-  let create dispatch =
+  let create access dispatch =
     let conn_closed (_, conn_id) =
+      access `Close;
       let cid = Cohttp.Connection.to_string conn_id in
       Log.debug (fun f -> f "conn %s closed" cid)
     in
     let callback = match dispatch with
       | `Redirect fn ->
         (fun _ request _ ->
+           access `Open;
            let redirect = fn (Cohttp.Request.uri request) in
            moved_permanently redirect >|= fun (res, body) ->
            log request res ;
            (res, body))
       | `Dispatch (headers, store, atom, content) ->
         (fun _ request _ ->
+           access `Open;
            let uri = Cohttp.Request.uri request in
            let etag = Cohttp.Header.get Cohttp.Request.(request.headers) "if-none-match" in
            dispatcher headers store atom content (Uri.path uri) etag >|= fun (res, body) ->

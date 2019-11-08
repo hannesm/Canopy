@@ -11,7 +11,6 @@ let decompose_git_url url =
 let remote_uri () = fst (decompose_git_url (Key_gen.remote ()))
 let remote_branch () = snd (decompose_git_url (Key_gen.remote ()))
 let port () = Key_gen.port ()
-let tls_port () = Key_gen.tls_port ()
 let push_hook_path () = Key_gen.push_hook ()
 
 let entry name = [ ".config" ; name ]
