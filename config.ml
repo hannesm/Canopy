@@ -28,8 +28,9 @@ let packages = [
   package ~min:"4.0.0" "tyxml";
   package "ptime";
   package ~min:"0.5" "decompress";
-  package ~min:"1.0.0" "irmin";
-  package "irmin-mirage";
+  package ~min:"2.0.0" "irmin";
+  package ~min:"2.0.0" "irmin-mirage";
+  package ~min:"2.0.0" "irmin-mirage-git";
   package "cohttp-mirage";
   package "mirage-flow";
   package ~sublibs:["mirage"] "tls";
