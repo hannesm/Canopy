@@ -36,10 +36,10 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
     X509.certificate kv `Default >|= fun cert ->
     Tls.Config.server ~certificates:(`Single cert) ()
 
+  module Store = Canopy_store
+
   let start stack resolver conduit _clock keys _ =
-    let (module Context) = Irmin_mirage.context (resolver, conduit) in
-    let module Store = Canopy_store.Store(Context)(Inflator) in
-    Store.pull () >>= fun () ->
+    Store.pull ~conduit ~resolver >>= fun () ->
     Store.base_uuid () >>= fun uuid ->
     Store.fill_cache uuid >>= fun new_cache ->
     let cache = ref (new_cache) in
@@ -51,7 +51,7 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
       value = Store.get_key ;
       update =
         (fun () ->
-           Store.pull () >>= fun () ->
+           Store.pull ~conduit ~resolver >>= fun () ->
            Store.fill_cache uuid >>= fun new_cache ->
            cache := new_cache ;
            update_atom ());

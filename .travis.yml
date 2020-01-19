@@ -6,6 +6,6 @@ services:
 language: c
 
 before_install:
-  - docker pull ocaml/dev:release-debian-9_ocaml-4.02.3
+  - docker pull ocurrent/opam:debian-10-ocaml-4.08
 
 script: docker build -t canopy .
