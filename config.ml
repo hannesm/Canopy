@@ -43,10 +43,7 @@ let packages = [
 
 
 (* Network stack *)
-let stack =
-  if_impl Key.is_unix
-    (socket_stackv4 [Ipaddr.V4.any])
-    (generic_stackv4 default_network)
+let stack = generic_stackv4 default_network
 
 let () =
   let keys = Key.([
