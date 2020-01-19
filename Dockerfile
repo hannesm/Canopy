@@ -1,8 +1,9 @@
-FROM ocaml/opam:debian-stable_ocaml-4.03.0
+FROM ocurrent/opam:debian-10-ocaml-4.08
 MAINTAINER canopy
 ENV OPAMYES 1
 RUN sudo apt-get update
-RUN curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+RUN sudo apt-get install -yy curl software-properties-common
+RUN curl -sL https://deb.nodesource.com/setup_12.x | sudo bash -
 RUN sudo apt-get install -yy nodejs
 RUN sudo npm install -g less browserify
 RUN cd /home/opam/opam-repository && git pull && opam update
@@ -11,6 +12,8 @@ WORKDIR /src
 ADD tls /src/tls
 RUN sudo chown -R opam:opam /src; sudo chmod -R 700 /src
 ENV TMP /tmp
+RUN opam install -y depext
+RUN opam depext -u mirage
 RUN opam install -y -j2 mirage
 COPY . /src
 ADD assets /src/assets
