@@ -33,7 +33,7 @@ let packages = [
   package ~min:"2.0.0" "irmin-mirage-git";
   package "cohttp-mirage";
   package "mirage-flow";
-  package ~sublibs:["mirage"] "tls";
+  package "tls-mirage";
   package "re";
   package ~min:"0.21.0" "cohttp";
   package ~min:"1.5" "syndic";
@@ -56,7 +56,6 @@ let () =
   in
   register "canopy" [
     foreign
-      ~deps:[abstract nocrypto]
       ~keys
       ~packages
       "Canopy_main.Main"
