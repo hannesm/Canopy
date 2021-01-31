@@ -37,6 +37,7 @@ let main ~cache ~content ~title ~keys =
            link ~rel:[`Stylesheet] ~href:"/static/css/highlight.css" ();
            script ~a:[a_src "/static/js/canopy.js"] (pcdata "");
            link ~rel:[`Alternate] ~href:"/atom" ~a:[a_title title; a_mime_type "application/atom+xml"] ();
+           meta ~a:[a_name "viewport"; a_content "width=device-width, initial-scale=1, viewport-fit=cover"] ();
          ])
       )
       (body
