@@ -1,4 +1,4 @@
-FROM ocurrent/opam:debian-10-ocaml-4.08
+FROM ocaml/opam:debian-10-ocaml-4.12
 MAINTAINER canopy
 ENV OPAMYES 1
 RUN sudo apt-get update
@@ -6,7 +6,7 @@ RUN sudo apt-get install -yy curl software-properties-common
 RUN curl -sL https://deb.nodesource.com/setup_12.x | sudo bash -
 RUN sudo apt-get install -yy nodejs
 RUN sudo npm install -g less browserify
-RUN cd /home/opam/opam-repository && git pull && opam update
+RUN cd /home/opam/opam-repository && git pull origin master && opam update
 ADD package.json README.md config.ml /src/
 WORKDIR /src
 ADD tls /src/tls
