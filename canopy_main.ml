@@ -1,8 +1,6 @@
-open Lwt
-open Mirage_types_lwt
-open Result
+open Lwt.Infix
 
-module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) (KEYS: KV_RO) = struct
+module Main (S: Mirage_stack.V4) (_: sig end) (_: Resolver_lwt.S) (_: Conduit_mirage.S) (CLOCK: Mirage_clock.PCLOCK) (KEYS: Mirage_kv.RO) = struct
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
@@ -38,8 +36,9 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
 
   module Store = Canopy_store
 
-  let start stack resolver conduit _clock keys =
-    Store.pull ~conduit ~resolver >>= fun () ->
+  let start stack ctx resolver conduit _clock keys =
+    let ctx = Git_cohttp_mirage.with_conduit (Cohttp_mirage.Client.ctx resolver conduit) ctx in
+    Store.pull ~ctx >>= fun () ->
     Store.base_uuid () >>= fun uuid ->
     Store.fill_cache uuid >>= fun new_cache ->
     let cache = ref (new_cache) in
@@ -51,7 +50,7 @@ module Main (S: STACKV4) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: P
       value = Store.get_key ;
       update =
         (fun () ->
-           Store.pull ~conduit ~resolver >>= fun () ->
+           Store.pull ~ctx >>= fun () ->
            Store.fill_cache uuid >>= fun new_cache ->
            cache := new_cache ;
            update_atom ());

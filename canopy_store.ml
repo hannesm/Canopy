@@ -25,11 +25,12 @@ let walk t root =
     | k::rest ->
       todo := rest;
       Store.list t k >>= fun childs ->
-      Lwt_list.iter_p (fun (s, c) ->
+      Lwt_list.iter_p (fun (s, _c) ->
           let k = k @ [s] in
-          match c with
-          | `Node     -> todo := k :: !todo; Lwt.return_unit
-          | `Contents ->
+          Store.kind t k >>= function
+          | None           -> Lwt.return_unit
+          | Some `Node     -> todo := k :: !todo; Lwt.return_unit
+          | Some `Contents ->
             Store.get t k >|= fun v ->
             all := (k, v) :: !all
         ) childs >>=
@@ -68,8 +69,8 @@ let base_uuid () =
   | None -> invalid_arg ".config/uuid is required in the remote git repository"
   | Some n -> String.trim n
 
-let pull ~conduit ~resolver =
-  let upstream = Store.remote ~conduit ~resolver (remote_uri ()) in
+let pull ~ctx =
+  let upstream = Store.remote ~ctx (remote_uri ()) in
   store () >>= fun t ->
   Log.info (fun f -> f "pulling repository") ;
   Lwt.catch
