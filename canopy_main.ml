@@ -1,8 +1,6 @@
-open Lwt
-open Mirage_types_lwt
-open Result
+open Lwt.Infix
 
-module Main (S: STACKV4) (_ : sig end) (RES: Resolver_lwt.S) (CON: Conduit_mirage.S) (CLOCK: PCLOCK) (KEYS: KV_RO) = struct
+module Main (S: Mirage_stack.V4) (_: sig end) (_: Resolver_lwt.S) (_: Conduit_mirage.S) (CLOCK: Mirage_clock.PCLOCK) (KEYS: Mirage_kv.RO) = struct
 
   module TCP  = S.TCPV4
   module TLS  = Tls_mirage.Make (TCP)
