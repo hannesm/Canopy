@@ -1,9 +1,7 @@
 open Lwt.Infix
 
-module Main (S: Mirage_stack.V4V6) (_: sig end) (Http : Cohttp_mirage.Server.S) (CLOCK: Mirage_clock.PCLOCK) (KEYS: Mirage_kv.RO) = struct
+module Main (_: sig end) (Http : Cohttp_mirage.Server.S) (CLOCK: Mirage_clock.PCLOCK) (KEYS: Mirage_kv.RO) = struct
 
-  module TCP  = S.TCP
-  module TLS  = Tls_mirage.Make (TCP)
   module X509 = Tls_mirage.X509 (KEYS) (CLOCK)
 
   module D  = Canopy_dispatch.Make(Http)
@@ -17,7 +15,7 @@ module Main (S: Mirage_stack.V4V6) (_: sig end) (Http : Cohttp_mirage.Server.S) 
 
   module Store = Canopy_store
 
-  let start stack ctx http _clock keys =
+  let start ctx http _clock keys =
     Store.pull ~ctx >>= fun () ->
     Store.base_uuid () >>= fun uuid ->
     Store.fill_cache uuid >>= fun new_cache ->

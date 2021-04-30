@@ -229,8 +229,7 @@ let () =
       ~keys
       ~packages
       "Canopy_main.Main"
-      (stackv4v6 @-> mimic @-> http @-> pclock @-> kv_ro @-> job)
-    $ stack
+      (mimic @-> http @-> pclock @-> kv_ro @-> job)
     $ mimic_impl
     $ cohttp_server (conduit_direct ~tls:true stack)
     $ default_posix_clock
